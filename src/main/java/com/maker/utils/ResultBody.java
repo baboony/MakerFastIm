@@ -20,6 +20,8 @@ public class ResultBody {
      *  4.图片
      *  5.视频
      *  6.其他（自定义）
+     *
+     *  101 拉取私聊消息（默认十条）
      */
     private Integer type;
 
