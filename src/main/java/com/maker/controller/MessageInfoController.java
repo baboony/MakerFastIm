@@ -9,6 +9,7 @@ import com.maker.service.MessageInfoService;
 import com.maker.service.UserInfoService;
 import com.maker.utils.Result;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import org.springframework.web.bind.annotation.RequestParam;
@@ -27,6 +28,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/maker/messageInfo")
+@CrossOrigin
 public class MessageInfoController {
 
     @Autowired
@@ -34,10 +36,10 @@ public class MessageInfoController {
 
 
     @RequestMapping("getHistoricalNews")
-    public Result<Page> getHistoricalNews(@RequestParam("userId") String userId,@RequestParam(name = "pageNumber", defaultValue = "0")
+    public Result<Page> getHistoricalNews(@RequestParam("userId") String userId, @RequestParam("formId") String formId,@RequestParam(name = "pageNumber", defaultValue = "0")
                                           int pageNumber, @RequestParam(name = "pageSize", defaultValue = "10") int pageSize) {
         //拉取聊天记录（默认10条）
-        Page<MessageInfo> page = messageInfoService.page(new Page<>(pageNumber, pageSize), new QueryWrapper<MessageInfo>().eq("send_id", userId).orderByDesc("msg_time"));
+        Page<MessageInfo> page = messageInfoService.page(new Page<>(pageNumber, pageSize), new QueryWrapper<MessageInfo>().eq("send_id", userId).eq("form_id", formId).or().eq("send_id", formId).eq("form_id", userId).orderByDesc("msg_time"));
         return Result.ok(page);
     }
 }

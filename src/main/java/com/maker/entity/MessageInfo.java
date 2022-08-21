@@ -29,6 +29,7 @@ public class MessageInfo implements Serializable {
      * 雪花ID
      */
       @TableId(value = "id", type = IdType.ASSIGN_ID)
+      @JsonFormat(shape = JsonFormat.Shape.STRING)
     private Long id;
 
     /**

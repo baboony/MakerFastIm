@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.annotation.*;
 
 import java.util.Date;
 import java.io.Serializable;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -26,6 +28,7 @@ public class UserInfo implements Serializable {
      * 雪花ID
      */
       @TableId(value = "id", type = IdType.ASSIGN_ID)
+      @JsonFormat(shape = JsonFormat.Shape.STRING)
     private Long id;
 
     /**

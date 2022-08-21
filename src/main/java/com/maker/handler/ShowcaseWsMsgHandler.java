@@ -15,11 +15,14 @@ import com.maker.service.UserInfoService;
 import com.maker.utils.MessageType;
 import com.maker.utils.RedisUtils;
 import com.maker.utils.Result;
+import jodd.util.concurrent.ThreadFactoryBuilder;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.convert.ConversionService;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.tio.common.starter.annotation.TioServerMsgHandler;
@@ -39,7 +42,7 @@ import org.tio.websocket.starter.TioWebSocketServerBootstrap;
 
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.*;
 
 @TioServerMsgHandler
 @Component
@@ -123,6 +126,7 @@ public class ShowcaseWsMsgHandler implements IWsMsgHandler {
     /**
      * 字符消息（binaryType = blob）过来后会走这个方法
      */
+
     @Override
     public Object onText(WsRequest wsRequest, String text, ChannelContext channelContext) throws Exception {
         WsSessionContext wsSessionContext = (WsSessionContext) channelContext.get();
@@ -152,8 +156,14 @@ public class ShowcaseWsMsgHandler implements IWsMsgHandler {
         String userId = channelContext.userid;
         //接收人
         String formId = messageInfo.getString("formId");
-        //接收人
+        //消息ID
         String msgId = messageInfo.getString("msgId");
+        if (StringUtils.isEmpty(userId) || StringUtils.isEmpty(formId)) {
+            JSONObject object = new JSONObject();
+            object.put("code", 401);
+            object.put("msg", "发送人和接收人不能为空");
+            return JSON.toJSONString(object);
+        }
         //客户端收到消息返回通知
         if (type.equals(MessageType.CLIENTELE_ACK)) {
             MessageInfo one = messageInfoService.getOne(new QueryWrapper<MessageInfo>().eq("msg_id", msgId));
