@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Comparator;
 import java.util.Map;
 
 /**
@@ -39,8 +40,11 @@ public class MessageInfoController {
     public Result<Page> getHistoricalNews(@RequestParam("userId") String userId, @RequestParam("formId") String formId,@RequestParam(name = "pageNumber", defaultValue = "0")
                                           int pageNumber, @RequestParam(name = "pageSize", defaultValue = "10") int pageSize) {
         //拉取聊天记录（默认10条）
-        Page<MessageInfo> page = messageInfoService.page(new Page<>(pageNumber, pageSize), new QueryWrapper<MessageInfo>().eq("send_id", userId).eq("form_id", formId).or().eq("send_id", formId).eq("form_id", userId).orderByDesc("msg_time"));
+        Page<MessageInfo> page = messageInfoService.page(new Page<MessageInfo>(pageNumber, pageSize), new QueryWrapper<MessageInfo>().eq("send_id", userId).eq("form_id", formId).or().eq("send_id", formId).eq("form_id", userId).orderByDesc("id"));
+        //倒序数据
+        page.getRecords().sort(Comparator.comparing(obj -> ((MessageInfo) obj).getId()));
         return Result.ok(page);
     }
+
 }
 

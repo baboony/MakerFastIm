@@ -1,9 +1,12 @@
 package com.maker.controller;
 
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.maker.entity.UserInfo;
 import com.maker.service.UserInfoService;
+import com.maker.utils.Result;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import org.springframework.web.bind.annotation.RestController;
@@ -18,22 +21,28 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/maker/userInfo")
+@CrossOrigin
 public class UserInfoController {
 
     @Autowired
     private UserInfoService userInfoService;
 
+    @RequestMapping("getUserById")
+    public Result<UserInfo> getUserById(String userId) {
+        UserInfo userInfo = userInfoService.getOne(new QueryWrapper<UserInfo>().eq("user_id", userId));
+        return userInfo != null ? Result.ok(userInfo) : Result.fail();
+    }
 
     @RequestMapping("addUser")
-    public Integer addUser(UserInfo userInfo) {
+    public Result<Void> addUser(UserInfo userInfo) {
         boolean save = userInfoService.save(userInfo);
-        return save ? 0 : 101;
+        return save ? Result.ok() : Result.fail();
     }
 
     @RequestMapping("modifyUser")
-    public Integer modifyUser(UserInfo userInfo) {
+    public Result<Void> modifyUser(UserInfo userInfo) {
         boolean save = userInfoService.updateById(userInfo);
-        return save ? 0 : 101;
+        return save ? Result.ok() : Result.fail();
     }
 
 }

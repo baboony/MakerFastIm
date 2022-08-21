@@ -151,19 +151,13 @@ public class ShowcaseWsMsgHandler implements IWsMsgHandler {
             return null;
         }
 
-
+        messageInfo.remove("loadding");
         //发送人
         String userId = channelContext.userid;
         //接收人
         String formId = messageInfo.getString("formId");
         //消息ID
         String msgId = messageInfo.getString("msgId");
-        if (StringUtils.isEmpty(userId) || StringUtils.isEmpty(formId)) {
-            JSONObject object = new JSONObject();
-            object.put("code", 401);
-            object.put("msg", "发送人和接收人不能为空");
-            return JSON.toJSONString(object);
-        }
         //客户端收到消息返回通知
         if (type.equals(MessageType.CLIENTELE_ACK)) {
             MessageInfo one = messageInfoService.getOne(new QueryWrapper<MessageInfo>().eq("msg_id", msgId));
@@ -172,6 +166,12 @@ public class ShowcaseWsMsgHandler implements IWsMsgHandler {
                 messageInfoService.updateById(one);
             }
             return null;
+        }
+        if (StringUtils.isEmpty(userId) || StringUtils.isEmpty(formId)) {
+            JSONObject object = new JSONObject();
+            object.put("code", 401);
+            object.put("msg", "发送人和接收人不能为空");
+            return JSON.toJSONString(object);
         }
         MessageInfo msg = new MessageInfo();
         msg.setSendId(userId);
@@ -184,15 +184,15 @@ public class ShowcaseWsMsgHandler implements IWsMsgHandler {
         switch (type) {
             case 2:
                 msg.setType(1);
+                msg.setViewStatus(0);
                 msg.setContent(JSON.toJSONString(messageInfo));
-                WsResponse wsResponse = WsResponse.fromText(JSON.toJSONString(messageInfo), ShowcaseServerConfig.CHARSET);
+                WsResponse wsResponse = WsResponse.fromText(JSON.toJSONString(msg), ShowcaseServerConfig.CHARSET);
                 Boolean send = Tio.sendToUser(channelContext.tioConfig, formId, wsResponse);
                 if (!send) {
                     msg.setMsgStatus(1);
                 } else {
                     msg.setMsgStatus(2);
                 }
-                msg.setViewStatus(0);
                 messageInfoService.save(msg);
                 setConversationInfo(userId, formId, msg);
                 break;
