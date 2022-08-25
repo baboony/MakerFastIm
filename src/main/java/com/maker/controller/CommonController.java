@@ -15,6 +15,11 @@ import org.springframework.web.multipart.MultipartFile;
 @CrossOrigin
 public class CommonController {
 
+    /**
+     * 图片上传接口
+     * @param file
+     * @return
+     */
     @PostMapping("/uploadImage")
     public Result upload(@RequestParam("file") MultipartFile file) {
         String fileName = file.getOriginalFilename();

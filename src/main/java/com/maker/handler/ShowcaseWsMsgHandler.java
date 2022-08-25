@@ -79,6 +79,7 @@ public class ShowcaseWsMsgHandler implements IWsMsgHandler {
      */
     @Override
     public void onAfterHandshaked(HttpRequest httpRequest, HttpResponse httpResponse, ChannelContext channelContext) throws Exception {
+        //校验用户
         UserInfo one = userInfoService.getOne(new QueryWrapper<UserInfo>().eq("user_id", httpRequest.getParam("user_id")));
         if (one != null) {
             Tio.bindUser(channelContext, one.getUserId());
@@ -265,6 +266,12 @@ public class ShowcaseWsMsgHandler implements IWsMsgHandler {
 
     }
 
+    /**
+     * 设置最新会话
+     * @param userId
+     * @param formId
+     * @param msg
+     */
     private void setConversationInfo(String userId, String formId, ChatMessage msg) {
         //会话管理
         ConversationInfo conversationInfo = conversationInfoService.getOne(new QueryWrapper<ConversationInfo>().eq("send_id", userId).or().eq("form_id", userId));
@@ -302,4 +309,5 @@ public class ShowcaseWsMsgHandler implements IWsMsgHandler {
         Boolean delivered = Tio.sendToUser(channelContext.tioConfig, userId, ackWsResponse);
         log.info("用户{}是否返回送达通知: {}", userId, delivered);
     }
+
 }
