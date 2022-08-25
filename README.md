@@ -8,7 +8,7 @@
 
 目前只存在三个接口：新增用户，修改用户信息，获取会话和获取聊天记录
 
-uniapp版已实现  链接：https://ext.dcloud.net.cn/plugin?id=9166
+uniapp测试版已实现  链接：https://ext.dcloud.net.cn/plugin?id=9166
 
 已实现功能：
 一对一单聊
