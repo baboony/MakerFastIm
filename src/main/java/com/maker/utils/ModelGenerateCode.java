@@ -69,7 +69,7 @@ public class ModelGenerateCode {
          * */
         StrategyConfig strategy = new StrategyConfig();
         //需要生成的表名，可以多个
-        strategy.setInclude("t_conversation_info");
+        strategy.setInclude("t_chat_message");
         strategy.setNaming(NamingStrategy.underline_to_camel);
         strategy.setColumnNaming(NamingStrategy.underline_to_camel);
         //自动生成lombok

@@ -30,7 +30,7 @@ public class UserInfoController {
     @RequestMapping("getUserById")
     public Result<UserInfo> getUserById(String userId) {
         UserInfo userInfo = userInfoService.getOne(new QueryWrapper<UserInfo>().eq("user_id", userId));
-        return userInfo != null ? Result.ok(userInfo) : Result.fail();
+        return userInfo != null ? Result.ok(userInfo) : Result.fail("用户不存在");
     }
 
     @RequestMapping("addUser")

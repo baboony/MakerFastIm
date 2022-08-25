@@ -1,6 +1,6 @@
 package com.maker.service;
 
-import com.maker.entity.MessageInfo;
+import com.maker.entity.ChatMessage;
 import com.baomidou.mybatisplus.extension.service.IService;
 
 /**
@@ -9,8 +9,8 @@ import com.baomidou.mybatisplus.extension.service.IService;
  * </p>
  *
  * @author 王俊程
- * @since 2022-08-21
+ * @since 2022-08-25
  */
-public interface MessageInfoService extends IService<MessageInfo> {
+public interface ChatMessageService extends IService<ChatMessage> {
 
 }

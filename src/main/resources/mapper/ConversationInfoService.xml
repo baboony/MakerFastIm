@@ -8,10 +8,11 @@
         SELECT
         t.*,
         msg.msg_time as msgTime,
-        msg.content
+        msg.type,
+        msg.msg
         FROM
         t_conversation_info t
-        LEFT JOIN t_message_info msg ON msg.id = t.last_msg_id
+        LEFT JOIN t_chat_message msg ON msg.id = t.last_msg_id
         <where>
             t.send_id = #{userId} or t.form_id = #{userId}
         </where>

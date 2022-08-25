@@ -1,6 +1,6 @@
 package com.maker.mapper;
 
-import com.maker.entity.MessageInfo;
+import com.maker.entity.ChatMessage;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 
 /**
@@ -9,8 +9,8 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
  * </p>
  *
  * @author 王俊程
- * @since 2022-08-21
+ * @since 2022-08-25
  */
-public interface MessageInfoMapper extends BaseMapper<MessageInfo> {
+public interface ChatMessageMapper extends BaseMapper<ChatMessage> {
 
 }

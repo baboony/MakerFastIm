@@ -1,46 +1,36 @@
 package com.maker.handler;
 
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.maker.Const;
 import com.maker.ShowcaseServerConfig;
+import com.maker.entity.ChatMessage;
 import com.maker.entity.ConversationInfo;
-import com.maker.entity.MessageInfo;
 import com.maker.entity.UserInfo;
+import com.maker.service.ChatMessageService;
 import com.maker.service.ConversationInfoService;
-import com.maker.service.MessageInfoService;
 import com.maker.service.UserInfoService;
-import com.maker.utils.MessageType;
+import com.maker.utils.MessageResult;
 import com.maker.utils.RedisUtils;
 import com.maker.utils.Result;
-import jodd.util.concurrent.ThreadFactoryBuilder;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.convert.ConversionService;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.tio.common.starter.annotation.TioServerMsgHandler;
 import org.tio.core.ChannelContext;
 import org.tio.core.Tio;
-import org.tio.core.TioConfig;
 import org.tio.http.common.HttpRequest;
 import org.tio.http.common.HttpResponse;
-import org.tio.server.TioServer;
 import org.tio.websocket.common.WsRequest;
 import org.tio.websocket.common.WsResponse;
 import org.tio.websocket.common.WsSessionContext;
-import org.tio.websocket.server.WsServerStarter;
 import org.tio.websocket.server.handler.IWsMsgHandler;
 import org.tio.websocket.starter.TioWebSocketServerAutoConfiguration;
-import org.tio.websocket.starter.TioWebSocketServerBootstrap;
 
-import java.nio.charset.StandardCharsets;
+import java.io.File;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -55,8 +45,9 @@ public class ShowcaseWsMsgHandler implements IWsMsgHandler {
     @Autowired
     private UserInfoService userInfoService;
 
+
     @Autowired
-    private MessageInfoService messageInfoService;
+    private ChatMessageService chatMessageService;
 
     @Autowired
     private ConversationInfoService conversationInfoService;
@@ -88,22 +79,16 @@ public class ShowcaseWsMsgHandler implements IWsMsgHandler {
      */
     @Override
     public void onAfterHandshaked(HttpRequest httpRequest, HttpResponse httpResponse, ChannelContext channelContext) throws Exception {
-
         UserInfo one = userInfoService.getOne(new QueryWrapper<UserInfo>().eq("user_id", httpRequest.getParam("user_id")));
         if (one != null) {
             Tio.bindUser(channelContext, one.getUserId());
             log.info("绑定用户: {}", one);
             Tio.bindGroup(channelContext, Const.GROUP_ID);
         } else {
-            JSONObject object = new JSONObject();
-            object.put("code", 502);
-            object.put("msg", "用户不存在");
-            WsResponse wsResponse = WsResponse.fromText(JSON.toJSONString(object), ShowcaseServerConfig.CHARSET);
+            WsResponse wsResponse = WsResponse.fromText(JSON.toJSONString(MessageResult.fail("用户不存在")), ShowcaseServerConfig.CHARSET);
             Tio.sendToUser(channelContext.tioConfig, httpRequest.getParam("user_id"), wsResponse);
             Tio.remove(channelContext, "用户不存在");
         }
-
-
     }
 
     /**
@@ -133,92 +118,165 @@ public class ShowcaseWsMsgHandler implements IWsMsgHandler {
         //获取websocket握手包
         HttpRequest httpRequest = wsSessionContext.getHandshakeRequest();
         //转换消息
-        JSONObject messageInfo = null;
+        ChatMessage chatMessage = null;
         try {
-            messageInfo = JSON.parseObject(text);
+            chatMessage = JSON.parseObject(text, ChatMessage.class);
         } catch (Exception e) {
-//            return Result.fail("消息格式错误，非JSON字符串");
-            JSONObject object = new JSONObject();
-            object.put("code", 401);
-            object.put("msg", "消息格式错误，非JSON字符串");
-            return JSON.toJSONString(object);
+            return JSON.toJSONString(Result.fail("消息格式错误，非JSON字符串"));
         }
 
-        //消息类型
-        Integer type = messageInfo.getInteger("type");
-        //如果是心跳
-        if (type.equals(MessageType.HEARTBEAT_CODE)) {
-            return null;
-        }
-
-        messageInfo.remove("loadding");
-        //发送人
-        String userId = channelContext.userid;
-        //接收人
-        String formId = messageInfo.getString("formId");
+        //获取消息类型
+        Integer type = chatMessage.getType();
         //消息ID
-        String msgId = messageInfo.getString("msgId");
-        //客户端收到消息返回通知
-        if (type.equals(MessageType.CLIENTELE_ACK)) {
-            MessageInfo one = messageInfoService.getOne(new QueryWrapper<MessageInfo>().eq("msg_id", msgId));
-            if (one != null) {
-                one.setViewStatus(1);
-                messageInfoService.updateById(one);
-            }
+        String msgId = chatMessage.getMsgId();
+        //发送人
+        String come = channelContext.userid;
+        //接收者ID
+        String go = chatMessage.getGo();
+        //如果是心跳则返回Null
+        if (type == 103) {
             return null;
         }
-        if (StringUtils.isEmpty(userId) || StringUtils.isEmpty(formId)) {
-            JSONObject object = new JSONObject();
-            object.put("code", 401);
-            object.put("msg", "发送人和接收人不能为空");
-            return JSON.toJSONString(object);
-        }
-        MessageInfo msg = new MessageInfo();
-        msg.setSendId(userId);
-        msg.setFormId(formId);
-        msg.setMsgId(msgId);
-        msg.setMsgTime(messageInfo.getLong("msgTime"));
-        //送达通知
-        noticeOfDelivery(channelContext, userId, msgId);
 
+        //客户端收到消息返回通知
+        if (clientAck(type, msgId)) {
+            return null;
+        }
+
+        //已读消息回应
+        if (clientReadMsgAck(channelContext, chatMessage, type)) {
+            return null;
+        }
+        //0-私聊 1-群聊
+        Integer mode = chatMessage.getMode();
+        if (mode != 0) {
+            return JSON.toJSONString(MessageResult.fail("暂不支持该模式"));
+        }
+
+        if (StringUtils.isEmpty(come) || StringUtils.isEmpty(go)) {
+            return JSON.toJSONString(MessageResult.fail("发送者和接收者不能为空"));
+        }
+        //送达通知
+        noticeOfDelivery(channelContext, come, msgId);
+
+        //类型：0-文字 1-图片 2-视频 3-等等   101-送达消息 102-已读消息 103-心跳 104-客户端ACK 105-服务端ACK
         switch (type) {
-            case 2:
-                msg.setType(1);
-                msg.setViewStatus(0);
-                msg.setContent(JSON.toJSONString(messageInfo));
-                WsResponse wsResponse = WsResponse.fromText(JSON.toJSONString(msg), ShowcaseServerConfig.CHARSET);
-                Boolean send = Tio.sendToUser(channelContext.tioConfig, formId, wsResponse);
-                if (!send) {
-                    msg.setMsgStatus(1);
-                } else {
-                    msg.setMsgStatus(2);
-                }
-                messageInfoService.save(msg);
-                setConversationInfo(userId, formId, msg);
+            case 0:
+                textHandler(channelContext, chatMessage, come, go);
                 break;
-            case 3:
+            case 1:
+                imageHandler(channelContext, chatMessage, go);
                 break;
             default:
-                JSONObject object = new JSONObject();
-                object.put("code", 401);
-                object.put("msg", "消息格式错误，非JSON字符串");
-                return JSON.toJSONString(object);
+                return JSON.toJSONString(MessageResult.fail("不支持该类型"));
         }
+        //设置发送人
+        chatMessage.setCome(come);
+        //存储消息
+        chatMessageService.save(chatMessage);
+        //设置最新会话
+        setConversationInfo(come, go, chatMessage);
         return null;
     }
 
-    private void setConversationInfo(String userId, String formId, MessageInfo msg) {
+    /**
+     * 接收方收到消息  如果是当前页面返回已读的状态   数据库更新已读并且发送给发送方已读标识
+     * @param channelContext
+     * @param chatMessage
+     * @param type
+     * @return
+     */
+    private boolean clientReadMsgAck(ChannelContext channelContext, ChatMessage chatMessage, Integer type) {
+        //已读消息回应
+        if (type == 106) {
+            JSONArray objects = JSON.parseArray(chatMessage.getMsgData());
+            if (objects == null) {
+                return true;
+            }
+            for (int i = 0; i < objects.size(); i++) {
+                //已读消息回应
+                String tMsgId = objects.getString(i);
+                //更新数据库状态
+                ChatMessage one = chatMessageService.getOne(new QueryWrapper<ChatMessage>().eq("msg_id", tMsgId));
+                one.setMsgStatus(2);
+                chatMessageService.updateById(one);
+                //发送已读回执
+                MessageResult result = MessageResult.success("已读", one.getMsgId(), 106);
+                WsResponse ackWsResponse = WsResponse.fromText(JSON.toJSONString(result), ShowcaseServerConfig.CHARSET);
+                Boolean delivered = Tio.sendToUser(channelContext.tioConfig, one.getCome(), ackWsResponse);
+                log.info("用户{}是否返回送达已读通知: {}", one.getCome(), delivered);
+                return true;
+            }
+        }
+        return false;
+    }
+
+
+    /**
+     * 客户端收到消息   更新数据库状态
+     * @param type
+     * @param msgId
+     * @return
+     */
+    private boolean clientAck(Integer type, String msgId) {
+        //客户端收到消息返回通知
+        if (type == 104) {
+            ChatMessage one = chatMessageService.getOne(new QueryWrapper<ChatMessage>().eq("msg_id", msgId));
+            if (one != null) {
+                one.setMsgStatus(1);
+                chatMessageService.updateById(one);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * 图片消息处理
+     * @param channelContext
+     * @param chatMessage
+     * @param go
+     */
+    private static void imageHandler(ChannelContext channelContext, ChatMessage chatMessage, String go) {
+        WsResponse wsResponse = WsResponse.fromText(JSON.toJSONString(chatMessage), ShowcaseServerConfig.CHARSET);
+        Boolean send = Tio.sendToUser(channelContext.tioConfig, go, wsResponse);
+        if (!send) {
+            chatMessage.setMsgStatus(3);
+        } else {
+            chatMessage.setMsgStatus(1);
+        }
+    }
+
+    /**
+     * 文本消息处理
+     * @param channelContext
+     * @param chatMessage
+     * @param come
+     * @param go
+     */
+    private void textHandler(ChannelContext channelContext, ChatMessage chatMessage, String come, String go) {
+        WsResponse wsResponse = WsResponse.fromText(JSON.toJSONString(chatMessage), ShowcaseServerConfig.CHARSET);
+        Boolean send = Tio.sendToUser(channelContext.tioConfig, go, wsResponse);
+        if (!send) {
+            chatMessage.setMsgStatus(3);
+        } else {
+            chatMessage.setMsgStatus(1);
+        }
+
+    }
+
+    private void setConversationInfo(String userId, String formId, ChatMessage msg) {
         //会话管理
-        ConversationInfo conversationInfo = conversationInfoService.getOne(new QueryWrapper<ConversationInfo>().eq("send_id", userId).or().eq("form_id",userId));
+        ConversationInfo conversationInfo = conversationInfoService.getOne(new QueryWrapper<ConversationInfo>().eq("send_id", userId).or().eq("form_id", userId));
         if (conversationInfo == null) {
             conversationInfo = new ConversationInfo();
-            conversationInfo.setSendId(msg.getSendId());
-            conversationInfo.setFormId(msg.getFormId());
+            conversationInfo.setSendId(msg.getCome());
+            conversationInfo.setFormId(msg.getGo());
             conversationInfo.setLastMsgId(msg.getId());
             conversationInfo.setLastTime(msg.getMsgTime());
             conversationInfo.setLastType(msg.getType());
             conversationInfo.setUnreadCount(1);
-        }else {
+        } else {
             conversationInfo.setLastMsgId(msg.getId());
             conversationInfo.setLastTime(msg.getMsgTime());
             conversationInfo.setLastType(msg.getType());
@@ -239,12 +297,8 @@ public class ShowcaseWsMsgHandler implements IWsMsgHandler {
      */
     private void noticeOfDelivery(ChannelContext channelContext, String userId, String msgId) {
         //回执消息
-        JSONObject ackData = new JSONObject();
-        ackData.put("code", 0);
-        ackData.put("type", MessageType.SERVICE_ACK);
-        ackData.put("msgId", msgId);
-        ackData.put("msg", "已送达");
-        WsResponse ackWsResponse = WsResponse.fromText(JSON.toJSONString(ackData), ShowcaseServerConfig.CHARSET);
+        MessageResult result = MessageResult.success("已送达", msgId, 101);
+        WsResponse ackWsResponse = WsResponse.fromText(JSON.toJSONString(result), ShowcaseServerConfig.CHARSET);
         Boolean delivered = Tio.sendToUser(channelContext.tioConfig, userId, ackWsResponse);
         log.info("用户{}是否返回送达通知: {}", userId, delivered);
     }

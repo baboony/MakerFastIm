@@ -3,8 +3,6 @@ package com.maker.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.maker.entity.ConversationInfo;
-import com.maker.entity.MessageInfo;
 import com.maker.entity.UserInfo;
 import com.maker.service.ConversationInfoService;
 import com.maker.service.UserInfoService;
