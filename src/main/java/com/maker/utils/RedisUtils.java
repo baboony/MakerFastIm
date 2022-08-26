@@ -13,10 +13,10 @@ import java.util.concurrent.TimeUnit;
 /**
  * @author lucky winner
  */
-@Service
+//@Service
 public class RedisUtils {
 
-    @Autowired
+//    @Autowired
     private RedisTemplate redisTemplate;
 
 

@@ -12,6 +12,8 @@ public class MessageResult {
 
     private Integer type;
 
+    private Object data;
+
     public MessageResult(Integer code, String msg) {
         this.code = code;
         this.msg = msg;
@@ -22,6 +24,14 @@ public class MessageResult {
         this.msg = msg;
         this.msgId = msgId;
         this.type = type;
+    }
+
+    public MessageResult(Integer code, String msg, String msgId, Integer type, Object data) {
+        this.code = code;
+        this.msg = msg;
+        this.msgId = msgId;
+        this.type = type;
+        this.data = data;
     }
 
     public static MessageResult success() {
@@ -38,6 +48,10 @@ public class MessageResult {
 
     public static MessageResult success(String msg, String msgId, Integer type) {
         return new MessageResult(0, msg, msgId, type);
+    }
+
+    public static MessageResult success(String msg, String msgId, Integer type, Object data) {
+        return new MessageResult(0, msg, msgId, type,data);
     }
 
     public static MessageResult fail() {

@@ -32,7 +32,7 @@ public class ChatMessage implements Serializable {
     private Long id;
 
     /**
-     * 类型：0-文字 1-图片 2-视频 3-卡片数据 4-订单数据   101-送达消息 102-已读消息 103-心跳 104-客户端ACK 105-服务端ACK 106-已读回应
+     * 类型：0-文字 1-图片 2-视频 3-卡片数据 4-订单数据   101-送达消息 102-已读消息 103-心跳 104-客户端ACK 105-服务端ACK 106-已读回应 107-新增会话回调 108-已有会话发生改变
      */
     private Integer type;
 

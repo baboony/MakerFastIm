@@ -13,7 +13,7 @@ import org.tio.websocket.starter.EnableTioWebSocketServer;
  * @author lucky winner
  * 启动类
  */
-@SpringBootApplication
+@SpringBootApplication(exclude = {RedisAutoConfiguration.class})
 @EnableTioWebSocketServer
 @EnableScheduling
 @MapperScan("com.maker.mapper")

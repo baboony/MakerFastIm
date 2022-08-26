@@ -40,9 +40,6 @@ import java.util.concurrent.*;
 public class ShowcaseWsMsgHandler implements IWsMsgHandler {
 
     @Autowired
-    private RedisUtils redisUtils;
-
-    @Autowired
     private UserInfoService userInfoService;
 
 
@@ -176,7 +173,7 @@ public class ShowcaseWsMsgHandler implements IWsMsgHandler {
         //存储消息
         chatMessageService.save(chatMessage);
         //设置最新会话
-        setConversationInfo(come, go, chatMessage);
+        setConversationInfo(come, channelContext, chatMessage);
         return null;
     }
 
@@ -269,11 +266,12 @@ public class ShowcaseWsMsgHandler implements IWsMsgHandler {
     /**
      * 设置最新会话
      * @param userId
-     * @param formId
+     * @param channelContext
      * @param msg
      */
-    private void setConversationInfo(String userId, String formId, ChatMessage msg) {
+    private void setConversationInfo(String userId, ChannelContext channelContext, ChatMessage msg) {
         //会话管理
+        Boolean nullConversationInfo = true;
         ConversationInfo conversationInfo = conversationInfoService.getOne(new QueryWrapper<ConversationInfo>().eq("send_id", userId).or().eq("form_id", userId));
         if (conversationInfo == null) {
             conversationInfo = new ConversationInfo();
@@ -284,6 +282,7 @@ public class ShowcaseWsMsgHandler implements IWsMsgHandler {
             conversationInfo.setLastType(msg.getType());
             conversationInfo.setUnreadCount(1);
         } else {
+            nullConversationInfo = false;
             conversationInfo.setLastMsgId(msg.getId());
             conversationInfo.setLastTime(msg.getMsgTime());
             conversationInfo.setLastType(msg.getType());
@@ -291,8 +290,29 @@ public class ShowcaseWsMsgHandler implements IWsMsgHandler {
             conversationInfo.setUnreadCount(conversationInfo.getUnreadCount() + 1);
 
         }
-        conversationInfoService.saveOrUpdate(conversationInfo);
 
+        conversationInfoService.saveOrUpdate(conversationInfo);
+        if (nullConversationInfo) {
+            //如果是新增会话
+            //回执消息
+            MessageResult result = MessageResult.success("有新的会话消息~", String.valueOf(conversationInfo.getLastMsgId()), 107, conversationInfo);
+            WsResponse ackWsResponse = WsResponse.fromText(JSON.toJSONString(result), ShowcaseServerConfig.CHARSET);
+            Boolean send = Tio.sendToUser(channelContext.tioConfig, conversationInfo.getSendId(), ackWsResponse);
+            log.info("{} 有新的会话消息通知发送是否成功 {}", conversationInfo.getSendId(), send);
+
+            Boolean sendForm = Tio.sendToUser(channelContext.tioConfig, conversationInfo.getFormId(), ackWsResponse);
+            log.info("{} 有新的会话消息通知发送是否成功 {}", conversationInfo.getFormId(), sendForm);
+        }else {
+            //更新会话
+            //回执消息
+            MessageResult result = MessageResult.success("会话消息改变啦~", String.valueOf(conversationInfo.getLastMsgId()), 108, conversationInfo);
+            WsResponse ackWsResponse = WsResponse.fromText(JSON.toJSONString(result), ShowcaseServerConfig.CHARSET);
+            Boolean send = Tio.sendToUser(channelContext.tioConfig, conversationInfo.getSendId(), ackWsResponse);
+            log.info("{} 有新的会话消息通知发送是否成功 {}", conversationInfo.getSendId(), send);
+
+            Boolean sendForm = Tio.sendToUser(channelContext.tioConfig, conversationInfo.getFormId(), ackWsResponse);
+            log.info("{} 有新的会话消息通知发送是否成功 {}", conversationInfo.getFormId(), sendForm);
+        }
     }
 
     /**
